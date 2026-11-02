@@ -1,11 +1,16 @@
+import os
 import requests
 from requests import Response
 import concurrent.futures
 
+# optional: set IPINFO_TOKEN in the terminal to lift ipinfo's free rate limit (no .env file needed)
+TOKEN = os.environ.get('IPINFO_TOKEN')
+
 
 def get_location(ip):
+    params = {'token': TOKEN} if TOKEN else None
     try:
-        response: Response = requests.get("https://ipinfo.io/" + ip + "/json", timeout=10)
+        response: Response = requests.get("https://ipinfo.io/" + ip + "/json", params=params, timeout=10)
     except requests.RequestException:
         return {'ip': ip, 'country': 'Unknown'}
     if response.status_code == 200:
