@@ -1,5 +1,7 @@
 import re
+import logging
 
+log = logging.getLogger('process')
 
 MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -21,6 +23,10 @@ def extract_from_row(row):
     if not match:
         return None
     month, day, time, message = match.groups()
+
+    if month not in MONTHS:
+        log.warning(f'unknown month "{month}", line ignored : {row[:100]}')
+        return None
 
     status = None
     found = re.search(failed_patern, message)
@@ -60,6 +66,9 @@ def extract_all(rows):
         event = extract_from_row(row)
         if event:
             events.append(event)
+    if rows and not events:
+        log.warning('no ssh login attempt found, are these really auth.log files ?')
+    log.info(f'{len(rows)} lines -> {len(events)} ssh events')
     return events
 
 
@@ -76,23 +85,36 @@ def top(counter, n=10):
     return sorted(counter.items(), key=lambda item: item[1], reverse=True)[:n]
 
 
-def summarize(events):
+def summarize(events, locations):
     summary = {
         'failed': 0, 'success': 0, 'invalid': 0,
-        'per_day': {}, 'per_ip': {}, 'success_ips': {},
+        'per_day': {}, 'per_ip': {}, 'per_country': {},
+        'success_users': {},   # who managed to log in
         'failed_users': {},    # usernames tried with a wrong password
         'invalid_users': {},   # usernames that don't exist on the server
-        'invalid_ips': {},
     }
+    not_located = set()
     for e in events:
         summary[e['status']] += e['count']
         if e['status'] == 'failed':
             add(summary['per_day'], e['date'], e['count'])
             add(summary['per_ip'], e['ip'], e['count'])
             add(summary['failed_users'], e['user'], e['count'])
+            location = locations.get(e['ip'])
+            if location is None:
+                not_located.add(e['ip'])
+                country = 'Unknown'
+            else:
+                country = location['country']
+            add(summary['per_country'], country, e['count'])
         elif e['status'] == 'invalid':
-            add(summary['invalid_users'], e['user'])
-            add(summary['invalid_ips'], e['ip'])
+            add(summary['invalid_users'], e['user'], e['count'])
         else:
-            add(summary['success_ips'], e['ip'], e['count'])
+            add(summary['success_users'], e['user'], e['count'])
+
+    summary['attacking_ips'] = len(summary['per_ip'])
+    if not_located:
+        log.warning(f'{len(not_located)} ips have no country, counted as Unknown')
+    if summary['success'] == 0:
+        log.warning('no successful login found in the logs')
     return summary

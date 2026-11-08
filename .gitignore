@@ -9,5 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
-# Database login (password)
+# old database login (not used anymore)
 .env
+
+# files created when the program runs
+logs/
+storage/*.csv

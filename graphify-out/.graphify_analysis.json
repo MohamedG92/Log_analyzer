@@ -1,0 +1,179 @@
+{
+  "communities": {
+    "0": [
+      "csv",
+      "main_run",
+      "storage_storage",
+      "storage_storage_is_empty",
+      "storage_storage_load_events",
+      "storage_storage_load_locations",
+      "storage_storage_save_events",
+      "storage_storage_save_locations"
+    ],
+    "1": [
+      "matplotlib_pyplot",
+      "matplotlib_ticker",
+      "process_extract_transforme_date_key",
+      "process_extract_transforme_top",
+      "serving_graphs",
+      "serving_graphs_barh",
+      "serving_graphs_print_report",
+      "serving_graphs_show"
+    ],
+    "2": [
+      "concurrent_futures",
+      "os",
+      "process_geolocation",
+      "process_geolocation_get_location",
+      "process_geolocation_get_locations",
+      "requests"
+    ],
+    "3": [
+      "process_extract_transforme",
+      "process_extract_transforme_add",
+      "process_extract_transforme_extract_all",
+      "process_extract_transforme_extract_from_row",
+      "process_extract_transforme_summarize",
+      "re"
+    ],
+    "4": [
+      "gzip",
+      "ingestion_raw",
+      "ingestion_raw_read_file",
+      "ingestion_raw_torows",
+      "logging"
+    ],
+    "5": [
+      "ingestion_init",
+      "main",
+      "main_setup_logs",
+      "process_init",
+      "sys"
+    ],
+    "6": [
+      "pkg_log_analyser"
+    ]
+  },
+  "cohesion": {
+    "0": 0.39285714285714285,
+    "1": 0.39285714285714285,
+    "2": 0.4,
+    "3": 0.4666666666666667,
+    "4": 0.5,
+    "5": 0.4,
+    "6": 1.0
+  },
+  "gods": [
+    {
+      "id": "main_run",
+      "label": "run()",
+      "degree": 12
+    },
+    {
+      "id": "serving_graphs_show",
+      "label": "show()",
+      "degree": 5
+    },
+    {
+      "id": "process_extract_transforme_top",
+      "label": "top()",
+      "degree": 4
+    },
+    {
+      "id": "ingestion_raw_torows",
+      "label": "toRows()",
+      "degree": 3
+    },
+    {
+      "id": "process_extract_transforme_extract_all",
+      "label": "extract_all()",
+      "degree": 3
+    },
+    {
+      "id": "process_extract_transforme_date_key",
+      "label": "date_key()",
+      "degree": 3
+    },
+    {
+      "id": "process_extract_transforme_summarize",
+      "label": "summarize()",
+      "degree": 3
+    },
+    {
+      "id": "process_geolocation_get_locations",
+      "label": "get_locations()",
+      "degree": 3
+    },
+    {
+      "id": "serving_graphs_print_report",
+      "label": "print_report()",
+      "degree": 3
+    },
+    {
+      "id": "ingestion_raw_read_file",
+      "label": "read_file()",
+      "degree": 2
+    }
+  ],
+  "surprises": [
+    {
+      "source": "run()",
+      "target": "toRows()",
+      "source_files": [
+        "main.py",
+        "ingestion/raw.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "run()",
+      "target": "extract_all()",
+      "source_files": [
+        "main.py",
+        "process/extract_transforme.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "run()",
+      "target": "summarize()",
+      "source_files": [
+        "main.py",
+        "process/extract_transforme.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "run()",
+      "target": "get_locations()",
+      "source_files": [
+        "main.py",
+        "process/geolocation.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "run()",
+      "target": "print_report()",
+      "source_files": [
+        "main.py",
+        "serving/graphs.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
