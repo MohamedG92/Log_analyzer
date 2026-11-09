@@ -2,7 +2,6 @@ import os
 import logging
 import requests
 from requests import Response
-import concurrent.futures
 
 log = logging.getLogger('process')
 
@@ -45,7 +44,7 @@ def get_location(ip):
     return {'country': data.get('country', 'Unknown'), 'city': data.get('city', '')}
 
 
-def get_locations(ips, cache, workers=20):
+def get_locations(ips, cache):
     # ips must be sorted from the biggest attacker to the smallest :
     # if ipinfo blocks us, at least the important ones are located
     # only the ips that are not already in the cache (locations.csv) are sent to ipinfo
@@ -53,25 +52,19 @@ def get_locations(ips, cache, workers=20):
     log.info(f'{len(ips)} ips, {len(new_ips)} not in the cache -> ipinfo')
 
     errors = 0
-    # one request per IP, run in parallel (20 at a time) so hundreds of IPs don't take minutes
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        for start in range(0, len(new_ips), workers):
-            batch = new_ips[start:start + workers]
-            blocked = False
-            for ip, location in zip(batch, pool.map(get_location, batch)):
-                if location == LIMIT:
-                    blocked = True
-                    errors += 1
-                elif location is None:
-                    errors += 1
-                else:
-                    cache[ip] = location
-            if blocked:
-                # no need to send the other requests, they will all get 429
-                left = len(new_ips) - start - len(batch)
-                log.error(f'ipinfo limit reached (429), {left + errors} ips not located, '
-                          f'set IPINFO_TOKEN or run again later')
-                return cache
+    # one request per IP, one after the other
+    for i, ip in enumerate(new_ips):
+        location = get_location(ip)
+        if location == LIMIT:
+            # no need to send the other requests, they will all get 429
+            left = len(new_ips) - i
+            log.error(f'ipinfo limit reached (429), {left + errors} ips not located, '
+                      f'set IPINFO_TOKEN or run again later')
+            return cache
+        if location is None:
+            errors += 1
+        else:
+            cache[ip] = location
 
     if errors:
         log.warning(f'{errors} ips could not be located, they will be retried next run')

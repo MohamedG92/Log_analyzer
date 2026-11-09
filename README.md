@@ -1,122 +1,23 @@
 # Log Analyzer
 
-Projet Python qui analyse les logs SSH d'un serveur Linux (les fichiers `auth.log`) pour voir qui essaie de se connecter, depuis ou, et avec quels noms d'utilisateur.
+C'est un projet Python qui analyse les logs SSH d'un serveur Linux, les fichiers auth.log, pour voir qui essaie de se connecter, depuis quel pays et avec quels noms d'utilisateur.
 
-Quand on ouvre un `auth.log` a la main on voit des milliers de lignes `Failed password for root from ...`, c'est des bots qui testent des mots de passe en boucle. Le but du projet c'est de faire le tri dans tout ca et de sortir des stats + un dashboard.
+Quand on ouvre un auth.log a la main on voit des milliers de lignes "Failed password for root from ...". Ce sont des bots qui testent des mots de passe en boucle. Le but du projet c'est de faire le tri dans tout ca et d'en sortir des stats et un dashboard.
 
-## Ce que le programme fait
+Le programme marche en quatre etapes. D'abord la partie ingestion lit tous les fichiers auth.log du dossier data, y compris ceux qui sont compresses en .gz. Ensuite la partie process utilise des regex pour garder seulement les lignes de sshd qui nous interessent : les mots de passe faux, les users qui n'existent pas sur le serveur et les connexions reussies. Les lignes "message repeated 4 times" sont comptees comme 4 tentatives et pas une seule. C'est aussi la partie process qui cherche le pays de chaque IP avec l'API ipinfo.io. La partie storage enregistre les resultats dans des fichiers csv, et pour finir la partie serving affiche un rapport dans le terminal et le dashboard avec matplotlib.
 
-1. **ingestion** : il lit tous les fichiers `auth.log*` du dossier `data/`, meme ceux compresses (`auth.log.3.gz`, `auth.log.4.gz`)
-2. **process** : avec des regex il garde seulement les lignes de `sshd` qui nous interessent :
-   - `Failed password for ...` -> mot de passe faux
-   - `Invalid user ...` -> le user n'existe meme pas sur le serveur
-   - `Accepted password for ...` -> connexion reussie
-   - `message repeated 4 times: [...]` -> compte pour 4 tentatives, pas 1
+Le dashboard montre les trois graphes demandes : le nombre de tentatives echouees par pays, le nombre de tentatives reussies par user, et les tentatives echouees avec un user invalide (les 15 noms les plus testes).
 
-   Ensuite il cherche le pays de chaque IP avec l'API [ipinfo.io](https://ipinfo.io)
-3. **storage** : les resultats sont enregistres dans des fichiers csv
-4. **serving** : affiche le rapport dans le terminal et le dashboard avec matplotlib
+Pour l'installer il faut Python 3.14 et uv, puis lancer "uv sync" dans le dossier du projet. On utilise seulement matplotlib et requests, tout le reste vient de Python (re, os, gzip, csv, logging).
 
-## Dashboard
+Pour le lancer on fait "uv run main.py". La premiere fois il lit les logs et cree le fichier storage/events.csv, et les fois d'apres il relit directement le csv, ce qui est plus rapide. Si on change les fichiers dans data, il faut lancer "uv run main.py reload" pour tout relire.
 
-La premiere ligne du dashboard c'est les 3 graphes demandes :
+Sans token, ipinfo bloque assez vite (erreur 429) et une partie des IPs reste en Unknown. Avec un compte gratuit sur ipinfo.io on recoit un token, et il suffit de le mettre dans le terminal avant de lancer le programme, avec $env:IPINFO_TOKEN = "ton_token" sous PowerShell. Les IPs deja trouvees sont gardees dans storage/locations.csv, donc on ne redemande jamais une IP qu'on connait deja, et celles qui n'ont pas marche sont reessayees au lancement suivant. On commence toujours par les IPs qui attaquent le plus, comme ca si on se fait bloquer, les plus importantes sont deja localisees.
 
-- nombre de tentatives echouees par pays
-- nombre de tentatives reussies par user
-- tentatives echouees avec invalid user (les 15 noms les plus testes)
+Au debut j'avais essaye avec une base MariaDB, mais c'etait trop lourd pour ce qu'on fait : il fallait installer et lancer un serveur juste pour quelques milliers de lignes. Maintenant tout tient dans deux fichiers csv dans storage. Le premier, events.csv, a une ligne par tentative (date, status, user, ip et nombre), et le deuxieme, locations.csv, garde le pays et la ville de chaque IP. Ils ne sont pas sur le git parce que le programme les recree.
 
-Et en dessous j'ai garde 3 graphes en plus qui aident a comprendre : le total failed / invalid / success, les tentatives par jour et les 15 IPs qui attaquent le plus.
+Chaque module a son propre fichier de log dans le dossier logs, comme ca quand quelque chose plante on sait tout de suite ou chercher. ingestion.log note par exemple un dossier data introuvable, un fichier illisible ou un .gz corrompu. process.log note les lignes avec un mois inconnu et les problemes avec ipinfo (timeout, pas d'internet, limite atteinte, reponse qui n'est pas du json). storage.log note un csv introuvable ou corrompu, ou un csv qu'on ne peut pas ecrire parce qu'il est ouvert dans Excel. serving.log note les graphes vides, et main.log garde le debut et la fin du programme ainsi que les erreurs imprevues avec la traceback complete. Dans le terminal on voit seulement les warnings et les erreurs, le reste va dans les fichiers.
 
-## Structure du projet
+Sur les quatre fichiers de data on trouve 16 361 mots de passe faux venant de 1 853 IPs differentes. root est de loin le user le plus teste, avec 13 090 tentatives. Il y a aussi 3 166 tentatives avec un user qui n'existe pas, comme admin, esisa, ubuntu, user ou test. Il n'y a qu'une seule connexion reussie : adminesisa depuis 10.10.33.81, une IP du reseau local, donc c'est normal. Les IPs qui attaquent le plus viennent des plages 45.148.10.x aux Pays-Bas et 92.118.39.x en Roumanie. En resume, le serveur se fait attaquer sans arret mais personne de l'exterieur n'a reussi a rentrer. Ca vaudrait quand meme le coup d'interdire le login root en SSH et d'installer fail2ban.
 
-```
-log_analyser/
-├── main.py                      # lance tout dans l'ordre + configure les logs
-├── data/                        # les fichiers auth.log a analyser
-├── ingestion/
-│   └── raw.py                   # lecture des fichiers (.log et .gz)
-├── process/
-│   ├── extract_transforme.py    # regex + calcul des stats
-│   └── geolocation.py           # IP -> pays avec ipinfo
-├── storage/
-│   └── storage.py               # lecture / ecriture des csv
-├── serving/
-│   └── graphs.py                # rapport + graphes
-└── logs/                        # cree tout seul au lancement
-```
-
-## Installation
-
-Il faut Python 3.14 et `uv`.
-
-```bash
-uv sync
-```
-
-On utilise seulement `matplotlib` et `requests`, tout le reste vient de Python (`re`, `os`, `gzip`, `csv`, `logging`).
-
-## Lancement
-
-```bash
-uv run main.py
-```
-
-La premiere fois il lit les logs et cree `storage/events.csv`. Les fois d'apres il relit directement le csv, c'est plus rapide.
-Si on change les fichiers dans `data/`, il faut relancer avec `reload` pour tout relire :
-
-```bash
-uv run main.py reload
-```
-
-### Token ipinfo
-
-Sans token, ipinfo bloque assez vite (erreur 429) et une partie des IPs reste en `Unknown`. Avec un compte gratuit sur ipinfo.io on a un token, et il suffit de le mettre dans le terminal avant de lancer :
-
-```powershell
-$env:IPINFO_TOKEN = "ton_token"
-uv run main.py
-```
-
-Les IPs deja trouvees sont gardees dans `storage/locations.csv`, donc on ne redemande jamais une IP deja connue. Celles qui n'ont pas marche sont reessayees au prochain lancement. Et on commence toujours par les IPs qui attaquent le plus, comme ca si on est bloque, les plus importantes sont deja localisees.
-
-## Pourquoi pas de base de donnees
-
-J'avais essaye avec MariaDB au debut mais c'etait trop lourd pour ce qu'on fait (il fallait installer et lancer un serveur juste pour quelques milliers de lignes). Maintenant tout est dans 2 csv dans `storage/` :
-
-- `events.csv` : une ligne par tentative (date, status, user, ip, nombre)
-- `locations.csv` : le pays et la ville de chaque IP
-
-Ils ne sont pas sur le git parce qu'ils sont recrees par le programme.
-
-## Logs de l'application
-
-Chaque module a son propre fichier de log dans `logs/`, comme ca quand ca plante on sait direct ou chercher :
-
-| fichier | erreurs enregistrees |
-|---|---|
-| `ingestion.log` | dossier `data/` introuvable, aucun fichier auth.log, fichier illisible (droits), `.gz` corrompu, fichier vide |
-| `process.log` | mois inconnu dans une ligne, aucune ligne ssh trouvee, ipinfo : timeout, pas d'internet, limite atteinte (429), reponse pas en json, IPs sans pays |
-| `storage.log` | csv introuvable ou corrompu, impossible d'ecrire le csv (par exemple s'il est ouvert dans Excel) |
-| `serving.log` | graphe vide (pas de donnees) |
-| `main.log` | debut / fin, rien a analyser, et toutes les erreurs imprevues avec la traceback complete |
-
-Dans le terminal on voit seulement les warnings et les erreurs, le reste va dans les fichiers.
-
-## Ce qu'on trouve dans nos logs
-
-Sur les 4 fichiers de `data/` :
-
-- **16 361** mots de passe faux, depuis **1 853** IPs differentes
-- `root` est le user le plus teste de loin (13 090 tentatives)
-- **3 166** tentatives avec un user qui n'existe pas (`admin`, `esisa`, `ubuntu`, `user`, `test`...)
-- **1 seule** connexion reussie : `adminesisa` depuis `10.10.33.81`, une IP du reseau local donc c'est normal
-- les IPs qui attaquent le plus sont des plages `45.148.10.x` (Pays-Bas) et `92.118.39.x` (Roumanie)
-
-Conclusion : le serveur se fait attaquer non-stop mais personne de l'exterieur n'a reussi a rentrer. Ca vaudrait quand meme le coup d'interdire le login root en SSH et d'installer fail2ban.
-
-## Difficultes
-
-- les fichiers `.gz` qu'il faut decompresser avec `gzip` avant de les lire
-- le syslog ne donne pas l'annee dans la date (`May 24 01:14:12`)
-- la limite de requetes d'ipinfo, d'ou le cache csv
-- les lignes "message repeated N times" qu'on comptait comme une seule tentative au debut
+Les principales difficultes ont ete les fichiers .gz qu'il faut decompresser avec gzip avant de les lire, le syslog qui ne donne pas l'annee dans la date (par exemple "May 24 01:14:12"), la limite de requetes d'ipinfo qui nous a pousses a faire le cache en csv, et les lignes "message repeated N times" qu'on comptait au debut comme une seule tentative.
