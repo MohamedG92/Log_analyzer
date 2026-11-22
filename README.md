@@ -1,11 +1,11 @@
 # Log Analyzer
 
-Ce projet Python analyse les logs SSH d'un serveur Linux (auth.log) pour voir qui essaie de se connecter, depuis quel pays et avec quels noms d'utilisateur.
+This Python project analyses the SSH logs of a Linux server (`auth.log`) to see who is trying to log in, from which country and with which usernames.
 
-Le programme lit les fichiers du dossier data (meme les .gz), garde avec des regex les mots de passe faux, les users invalides et les connexions reussies, puis cherche le pays de chaque IP avec ipinfo.io. Les resultats sont enregistres dans storage/events.csv et storage/locations.csv, et le dashboard matplotlib affiche les tentatives echouees par pays, les tentatives reussies par user et les tentatives avec un user invalide.
+The program reads the files in the `data` folder (even `.gz` ones), uses regular expressions to keep failed passwords, invalid users and successful logins, then looks up the country of each IP with ipinfo.io. The results are saved in `storage/events.csv` and `storage/locations.csv`, and the matplotlib dashboard shows failed attempts by country, successful logins by user and attempts with an invalid user.
 
-Pour l'installer il faut Python 3.14 et uv, puis "uv sync". Pour le lancer c'est "uv run main.py", ou "uv run main.py reload" si on change les fichiers de data. On utilise seulement matplotlib et requests. Sans token ipinfo bloque vite, donc on peut en mettre un avec $env:IPINFO_TOKEN = "ton_token". Les IPs deja trouvees restent dans locations.csv et ne sont pas redemandees.
+To install it you need Python 3.14 and uv, then run `uv sync`. To start it, run `uv run main.py`, or `uv run main.py reload` if you change the files in `data`. It only uses matplotlib and requests. Without a token ipinfo blocks quickly, so you can set one with `$env:IPINFO_TOKEN = "your_token"`. IPs that were already looked up stay in `locations.csv` and are not requested again.
 
-Il n'y a pas de base de donnees parce que deux csv suffisent pour quelques milliers de lignes. Chaque module a son propre fichier de log dans le dossier logs pour savoir ou chercher en cas d'erreur.
+There is no database because two CSV files are enough for a few thousand lines. Each module has its own log file in the `logs` folder, so you know where to look when something goes wrong.
 
-Dans nos logs on trouve 16 361 mots de passe faux venant de 1 853 IPs, surtout sur root, et 3 166 tentatives avec un user qui n'existe pas. La seule connexion reussie vient du reseau local (adminesisa depuis 10.10.33.81), donc personne de l'exterieur n'est rentre.
+In our logs we found 16,361 failed passwords coming from 1,853 IPs, mostly targeting root, and 3,166 attempts with a user that doesn't exist. The only successful login comes from the local network (adminesisa from 10.10.33.81), so nobody from outside got in.
